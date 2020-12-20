@@ -370,42 +370,92 @@ class ZakupkiParser:
                 for item in items:
                     i += 1
                     try:
-                        full_name = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}fullName").text
-                        short_name = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}shortName").text
+                        full_name = item.find(f".//{{{namespace}}}mainInfo")[0].text
+                        short_name = item.find(f".//{{{namespace}}}mainInfo")[1].text
                         registration_date = item.find(f".//{{{namespace}}}codeAssignDateTime").text
-                        ogrn = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}ogrn").text
-                        inn = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}inn").text
-                        kpp = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}kpp").text
-                        legalAddress = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}legalAddress").text
-                        postalAddress = item.find(f".//{{{namespace}}}mainInfo").find(f".//{{{namespace}}}postalAddress").text
-                        timeZone = nsiTimeZone.objects.get_or_create(
-                            offset = item.find(f".//{{{namespace}}}additionalInfo").find(f".//{{{namespace}}}timeZone").find(f".//{{{namespace}}}offset").text,
-                            name = item.find(f".//{{{namespace}}}additionalInfo").find(f".//{{{namespace}}}timeZone").find(f".//{{{namespace}}}name").text,
+                        ogrn = item.find(f".//{{{namespace}}}mainInfo")[4].text
+                        inn = item.find(f".//{{{namespace}}}mainInfo")[2].text
+                        kpp = item.find(f".//{{{namespace}}}mainInfo")[3].text
+                        legalAddress = item.find(f".//{{{namespace}}}mainInfo")[5].text
+                        postalAddress = item.find(f".//{{{namespace}}}mainInfo")[6].text
+                        timeZone, cr = nsiTimeZone.objects.get_or_create(
+                            offset=item.find(f".//{{{namespace}}}additionalInfo").find(
+                                f".//{{{namespace}}}timeZone").find(f".//{{{namespace}}}offset").text,
+                            name=item.find(f".//{{{namespace}}}additionalInfo").find(
+                                f".//{{{namespace}}}timeZone").find(f".//{{{namespace}}}name").text,
                         )
-                        okpo =
-                        okato =
-                        oktmo =
-                        okfs =
-                        okopf =
-
-
-
-
-
-
-
-                        code = item.find(f".//{{{namespace}}}code").text
-                        digitalCode = item.find(f".//{{{namespace}}}digitalCode").text
-                        name = item.find(f".//{{{namespace}}}name").text
-                        shortName = item.find(f".//{{{namespace}}}shortName").text
-                        nsiOkv.objects.get_or_create(
-                            code=code,
-                            name=name,
-                            digitalCode=digitalCode,
-                            shortName=shortName,
+                        okpo, cr = nsiOkpo.objects.get_or_create(
+                            code=item.find(f".//{{{namespace}}}classification").find(f".//{{{namespace}}}okpo").text,
                         )
+                        okato, cr = nsiOkato.objects.get_or_create(
+                            code=item.find(f".//{{{namespace}}}classification").find(f".//{{{namespace}}}okato").text,
+                        )
+                        oktmo, cr = nsiOktmo.objects.get_or_create(
+                            code=item.find(f".//{{{namespace}}}classification").find(f".//{{{namespace}}}oktmo").text,
+                        )
+                        okfs, cr = nsiOkfs.objects.get_or_create(
+                            code=item.find(f".//{{{namespace}}}classification").find(f".//{{{namespace}}}okfs").text,
+                        )
+                        okopf, cr = nsiOkopf.objects.get_or_create(
+                            code=item.find(f".//{{{namespace}}}classification").find(f".//{{{namespace}}}okopf").text,
+                        )
+
+                        org, cr = Organization.objects.get_or_create(
+                            full_name=full_name,
+                            short_name=short_name,
+                            registration_date=registration_date,
+                            ogrn=ogrn,
+                            inn=inn,
+                            kpp=kpp,
+                            legalAddress=legalAddress,
+                            postalAddress=postalAddress,
+                            timeZone=timeZone,
+                            okpo=okpo,
+                            okato=okato,
+                            oktmo=oktmo,
+                            okfs=okfs,
+                            okopf=okopf,
+                        )
+
                     except Exception as e:
                         pass
+
+                    try:
+                        root = item.find(f".//{{{namespace}}}classification").find(
+                            f".//{{{namespace}}}activities")
+                        okvs = root.findall(f".//{{{namespace}}}okved")
+                        for okv in okvs:
+                            o_okv, cr = nsiOkved.objects.get_or_create(
+                                code=okv.find(f".//{{{namespace}}}code").text,
+                                name=okv.find(f".//{{{namespace}}}name").text
+                            )
+                            is_main = bool(okv.find(f".//{{{namespace}}}isMain").text)
+                            OrganizationOkved.objects.get_or_create(
+                                isMain=is_main,
+                                organization=org,
+                                okved=o_okv,
+                            )
+                    except Exception as e:
+                        pass
+
+                    try:
+                        root = item.find(f".//{{{namespace}}}classification").find(
+                            f".//{{{namespace}}}activities")
+                        okvs = root.findall(f".//{{{namespace}}}okved2")
+                        for okv in okvs:
+                            o_okv, cr = nsiOkved2.objects.get_or_create(
+                                code=okv.find(f".//{{{namespace}}}code").text,
+                                name=okv.find(f".//{{{namespace}}}name").text
+                            )
+                            is_main = bool(okv.find(f".//{{{namespace}}}isMain").text)
+                            OrganizationOkved2.objects.get_or_create(
+                                isMain=is_main,
+                                organization=org,
+                                okved2=o_okv,
+                            )
+                    except Exception as e:
+                        pass
+
                     if i > self.limit_record:
                         br = True
                         break
@@ -477,10 +527,15 @@ class ZakupkiParser:
         self.parse_and_save_to_db('nsiOrganization', files)
         self.remove_files(files)
 
+    def parse_Customer(self):
+        files = self.get_xml_files("/out/nsi/nsiCustomer")
+        self.parse_and_save_to_db('nsiCustomer', files)
+        self.remove_files(files)
+
+
+
 
 if __name__ == '__main__':
     zp = ZakupkiParser()
 
     zp.parse_Organization()
-
-    print("finish")
